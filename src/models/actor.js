@@ -38,6 +38,7 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     sequelize,
     modelName: 'Actor',
+    // 不设置 tableName，Sequelize 会自动生成 'Actors'
     tableName: 'actors',
   });
   return Actor;

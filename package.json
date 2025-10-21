@@ -17,7 +17,8 @@
     "test:watch": "cross-env NODE_ENV=test jest --watch",
     "test:coverage": "cross-env NODE_ENV=test jest --coverage",
     "test:unit": "cross-env NODE_ENV=test jest tests/unit",
-    "test:integration": "cross-env NODE_ENV=test jest tests/integration"
+    "test:integration": "cross-env NODE_ENV=test jest tests/integration",
+    "prepare": "husky install"
   },
   "repository": {
     "type": "git",
@@ -42,7 +43,16 @@
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/supertest": "^6.0.3",
+    "eslint": "^9.38.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-jest": "^29.0.1",
+    "eslint-plugin-prettier": "^5.5.4",
+    "eslint-plugin-security": "^3.0.1",
+    "husky": "^9.1.7",
     "jest": "^30.2.0",
+    "lint-staged": "^16.2.5",
     "nodemon": "^3.1.10",
     "sequelize-cli": "^6.6.3",
     "supertest": "^7.1.4"

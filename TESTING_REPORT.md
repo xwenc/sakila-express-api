@@ -794,3 +794,387 @@ await sequelize.sync({ alter: true }); // 尝试修改表结构（危险）
 await sequelize.sync({ force: true }); // 删除并重新创建所有表（数据丢失）
 
 ```
+
+详细解释 createActor 错误处理测试
+```javascript
+
+it("should handle database errors in createActor", async () => {
+  
+  // 📝 第1步：创建一个模拟的数据库错误
+  const dbError = new Error("Constraint violation");
+  // 这创建了一个Error对象，模拟数据库约束违反错误
+  // 例如：重复的邮箱、违反外键约束、字段长度超限等
+  
+  // 🎭 第2步：设置Mock行为 - 让数据库操作失败
+  db.Actor.create.mockRejectedValue(dbError);
+  // 这告诉Jest：当调用 db.Actor.create() 时，
+  // 返回一个被拒绝的Promise，拒绝原因是 dbError
+  // 相当于数据库操作失败了
+  
+  // 📥 第3步：准备请求数据
+  mockReq.body = { firstName: "Test", lastName: "Test" };
+  // 设置请求体，模拟客户端发送的数据
+  // 这是创建新演员所需的数据
+  
+  // 🚀 第4步：调用控制器方法
+  await actorsController.createActor(mockReq, mockRes, mockNext);
+  // 调用实际的控制器方法
+  // 注意：使用 await 等待异步操作完成
+  // 控制器内部会尝试调用 db.Actor.create()，但会收到我们mock的错误
+  
+  // ✅ 第5步：验证错误被正确处理
+  expect(mockNext).toHaveBeenCalledWith(dbError);
+  // 验证 next() 函数被调用，并且传入了正确的错误对象
+  // 这确保错误被传递给Express的错误处理中间件
+  
+  // ❌ 第6步：验证响应方法未被调用
+  expect(mockRes.json).not.toHaveBeenCalled();
+  // 验证 res.json() 没有被调用
+  // 因为发生了错误，不应该发送成功响应
+});
+
+// 🔍 测试验证的具体行为：
+console.log('=== 测试验证的行为 ===');
+console.log('1. 控制器正确捕获了数据库错误');
+console.log('2. 错误被传递给错误处理中间件(next)');
+console.log('3. 没有发送成功响应(res.json未调用)');
+console.log('4. 控制器函数正常完成，没有抛出未处理的错误');
+```
+```javascript
+// 假设的 createActor 控制器实现
+const actorsController = {
+  async createActor(req, res, next) {
+    try {
+      // 📥 1. 从请求体获取数据
+      const { firstName, lastName } = req.body;
+      console.log('1. 获取请求数据:', { firstName, lastName });
+      
+      // 💾 2. 尝试创建新演员（这里会失败）
+      console.log('2. 调用 db.Actor.create()');
+      const actor = await db.Actor.create({ firstName, lastName });
+      // ⚠️ 在测试中，这里会抛出 "Constraint violation" 错误
+      
+      // 📤 3. 这行不会执行（因为上面抛出了错误）
+      console.log('3. 发送成功响应 - 不会执行');
+      res.status(201).json(actor);
+      
+    } catch (error) {
+      // 🎯 4. 错误被捕获
+      console.log('4. 捕获错误:', error.message);
+      
+      // 📡 5. 传递错误给错误处理中间件
+      console.log('5. 调用 next(error)');
+      next(error);
+      
+      // ✅ 6. 函数正常结束
+      console.log('6. 函数正常结束');
+    }
+  }
+};
+
+// 🔄 完整的执行流程演示
+async function demonstrateExecutionFlow() {
+  console.log('\n=== 执行流程演示 ===');
+  
+  // 模拟测试环境
+  const mockReq = { body: { firstName: "Test", lastName: "Test" } };
+  const mockRes = { 
+    status: jest.fn().mockReturnThis(),
+    json: jest.fn() 
+  };
+  const mockNext = jest.fn();
+  
+  // 设置mock错误
+  const dbError = new Error("Constraint violation");
+  db.Actor.create = jest.fn().mockRejectedValue(dbError);
+  
+  console.log('开始调用控制器...');
+  
+  try {
+    await actorsController.createActor(mockReq, mockRes, mockNext);
+    console.log('控制器调用完成，没有抛出错误');
+  } catch (error) {
+    console.log('控制器抛出了错误（不应该发生）:', error);
+  }
+  
+  // 检查调用结果
+  console.log('\n=== 调用结果检查 ===');
+  console.log('next 被调用次数:', mockNext.mock.calls.length);
+  console.log('next 调用参数:', mockNext.mock.calls[0]);
+  console.log('res.json 被调用次数:', mockRes.json.mock.calls.length);
+  console.log('res.status 被调用次数:', mockRes.status.mock.calls.length);
+}
+```
+
+```javascript
+// 测试断言的详细解释
+
+describe('断言解释', () => {
+  
+  // 🎯 断言1：expect(mockNext).toHaveBeenCalledWith(dbError)
+  it('解释第一个断言', () => {
+    // 这个断言验证：
+    console.log('=== 第一个断言验证的内容 ===');
+    console.log('1. mockNext 函数被调用了');
+    console.log('2. 调用时传入的参数是 dbError 对象');
+    console.log('3. 参数完全匹配（使用 === 比较）');
+    
+    // 等价的验证方式：
+    expect(mockNext).toHaveBeenCalled(); // 基本调用检查
+    expect(mockNext).toHaveBeenCalledTimes(1); // 精确调用次数
+    expect(mockNext.mock.calls[0][0]).toBe(dbError); // 直接检查参数
+    
+    // 这确保了什么？
+    console.log('\n=== 这确保了什么？ ===');
+    console.log('✅ 错误没有被静默忽略');
+    console.log('✅ 错误被正确传递给Express错误处理链');
+    console.log('✅ 错误对象保持原样，没有被修改');
+  });
+  
+  // ❌ 断言2：expect(mockRes.json).not.toHaveBeenCalled()
+  it('解释第二个断言', () => {
+    console.log('=== 第二个断言验证的内容 ===');
+    console.log('1. mockRes.json 函数没有被调用');
+    console.log('2. 调用次数为 0');
+    
+    // 等价的验证方式：
+    expect(mockRes.json).toHaveBeenCalledTimes(0);
+    expect(mockRes.json.mock.calls.length).toBe(0);
+    
+    // 这确保了什么？
+    console.log('\n=== 这确保了什么？ ===');
+    console.log('✅ 发生错误时不发送成功响应');
+    console.log('✅ 避免了混淆的响应状态');
+    console.log('✅ 遵循了"要么成功响应，要么错误处理"的原则');
+    
+    // 为什么这很重要？
+    console.log('\n=== 为什么这很重要？ ===');
+    console.log('❌ 如果既调用了next(error)又调用了res.json()：');
+    console.log('   - 客户端可能收到部分响应');
+    console.log('   - Express可能报"Cannot set headers after they are sent"错误');
+    console.log('   - 错误处理中间件可能无法正确处理');
+  });
+
+  // 🔍 完整的测试验证逻辑
+  it('完整的测试验证逻辑', () => {
+    console.log('=== 完整的验证逻辑 ===');
+    console.log('这个测试确保控制器在数据库错误时：');
+    console.log('1. 🎯 正确识别错误（try-catch捕获）');
+    console.log('2. 📡 正确传递错误（调用next(error)）');
+    console.log('3. 🚫 不发送响应（不调用res.json）');
+    console.log('4. ✅ 让错误处理中间件接管');
+    
+    console.log('\n这模拟了真实场景中的：');
+    console.log('- 数据库连接失败');
+    console.log('- 约束违反（如重复邮箱）');
+    console.log('- 验证错误');
+    console.log('- 权限问题等');
+  });
+});
+```
+```javascript
+// 成功场景 vs 错误场景对比
+
+describe('成功 vs 错误场景对比', () => {
+  
+  // ✅ 成功场景测试
+  it('should create actor successfully', async () => {
+    // 1. 准备成功的mock数据
+    const newActor = { firstName: "John", lastName: "Doe" };
+    const createdActor = { id: 1, ...newActor, createdAt: new Date() };
+    
+    // 2. 设置成功的mock
+    db.Actor.create.mockResolvedValue(createdActor);
+    mockReq.body = newActor;
+    
+    // 3. 调用控制器
+    await actorsController.createActor(mockReq, mockRes, mockNext);
+    
+    // 4. 验证成功响应
+    expect(mockRes.status).toHaveBeenCalledWith(201);
+    expect(mockRes.json).toHaveBeenCalledWith(createdActor);
+    expect(mockNext).not.toHaveBeenCalled(); // 👈 成功时不调用next
+  });
+  
+  // ❌ 错误场景测试（你的测试）
+  it('should handle database errors in createActor', async () => {
+    // 1. 准备错误的mock
+    const dbError = new Error("Constraint violation");
+    
+    // 2. 设置失败的mock
+    db.Actor.create.mockRejectedValue(dbError);
+    mockReq.body = { firstName: "Test", lastName: "Test" };
+    
+    // 3. 调用控制器
+    await actorsController.createActor(mockReq, mockRes, mockNext);
+    
+    // 4. 验证错误处理
+    expect(mockNext).toHaveBeenCalledWith(dbError); // 👈 错误时调用next
+    expect(mockRes.json).not.toHaveBeenCalled(); // 👈 错误时不响应
+  });
+
+  // 📊 对比总结
+  it('总结两种场景的区别', () => {
+    console.log('=== 成功场景 vs 错误场景 ===');
+    
+    console.log('\n✅ 成功场景的特征：');
+    console.log('- db.Actor.create.mockResolvedValue() // Promise resolved');
+    console.log('- res.status(201).json(data) // 发送成功响应');
+    console.log('- next() 不被调用 // 不需要错误处理');
+    
+    console.log('\n❌ 错误场景的特征：');
+    console.log('- db.Actor.create.mockRejectedValue() // Promise rejected');
+    console.log('- next(error) 被调用 // 传递错误');
+    console.log('- res.json() 不被调用 // 不发送响应');
+    
+    console.log('\n🎯 测试验证的完整性：');
+    console.log('- 成功时：验证正确响应 + next不被调用');
+    console.log('- 失败时：验证next被调用 + 响应不被发送');
+    console.log('- 这确保了控制器在任何情况下都有明确的行为');
+  });
+
+  // 🔄 真实世界的映射
+  it('真实世界的场景映射', () => {
+    console.log('=== 真实世界场景 ===');
+    
+    console.log('\n这个测试模拟的真实情况：');
+    console.log('1. 🌐 客户端发送POST请求创建演员');
+    console.log('2. 🎭 控制器接收数据并尝试保存到数据库');
+    console.log('3. 💥 数据库返回约束违反错误（如重复名字）');
+    console.log('4. 🛡️ 控制器捕获错误并传递给错误处理器');
+    console.log('5. 📨 错误处理器返回适当的错误响应给客户端');
+    
+    console.log('\n如果没有正确的错误处理：');
+    console.log('❌ 应用可能崩溃');
+    console.log('❌ 客户端收到500内部服务器错误');
+    console.log('❌ 错误信息不明确');
+    console.log('❌ 调试困难');
+  });
+});
+```
+```javascript
+// 常见的错误处理测试模式
+
+describe('常见错误处理测试模式', () => {
+  
+  // 模式1: 数据库约束错误
+  it('should handle unique constraint violations', async () => {
+    const constraintError = new Error('Duplicate entry for email');
+    constraintError.name = 'SequelizeUniqueConstraintError';
+    constraintError.fields = { email: 'test@example.com' };
+    
+    db.Actor.create.mockRejectedValue(constraintError);
+    mockReq.body = { firstName: 'John', lastName: 'Doe', email: 'test@example.com' };
+    
+    await actorsController.createActor(mockReq, mockRes, mockNext);
+    
+    expect(mockNext).toHaveBeenCalledWith(constraintError);
+    expect(mockRes.json).not.toHaveBeenCalled();
+  });
+
+  // 模式2: 验证错误
+  it('should handle validation errors', async () => {
+    const validationError = new Error('Validation failed');
+    validationError.name = 'SequelizeValidationError';
+    validationError.errors = [
+      { field: 'firstName', message: 'First name is required' },
+      { field: 'lastName', message: 'Last name too long' }
+    ];
+    
+    db.Actor.create.mockRejectedValue(validationError);
+    mockReq.body = { firstName: '', lastName: 'VeryLongLastNameThatExceedsLimit' };
+    
+    await actorsController.createActor(mockReq, mockRes, mockNext);
+    
+    expect(mockNext).toHaveBeenCalledWith(validationError);
+  });
+
+  // 模式3: 网络/连接错误
+  it('should handle database connection errors', async () => {
+    const connectionError = new Error('ECONNREFUSED');
+    connectionError.code = 'ECONNREFUSED';
+    connectionError.syscall = 'connect';
+    
+    db.Actor.create.mockRejectedValue(connectionError);
+    mockReq.body = { firstName: 'John', lastName: 'Doe' };
+    
+    await actorsController.createActor(mockReq, mockRes, mockNext);
+    
+    expect(mockNext).toHaveBeenCalledWith(connectionError);
+  });
+
+  // 模式4: 超时错误
+  it('should handle database timeout errors', async () => {
+    const timeoutError = new Error('Query timeout');
+    timeoutError.code = 'ETIMEDOUT';
+    
+    db.Actor.create.mockRejectedValue(timeoutError);
+    mockReq.body = { firstName: 'John', lastName: 'Doe' };
+    
+    await actorsController.createActor(mockReq, mockRes, mockNext);
+    
+    expect(mockNext).toHaveBeenCalledWith(timeoutError);
+  });
+
+  // 模式5: 通用错误处理测试
+  it('should handle any unexpected errors', async () => {
+    const unexpectedError = new Error('Something went wrong');
+    
+    db.Actor.create.mockRejectedValue(unexpectedError);
+    mockReq.body = { firstName: 'John', lastName: 'Doe' };
+    
+    await actorsController.createActor(mockReq, mockRes, mockNext);
+    
+    expect(mockNext).toHaveBeenCalledWith(unexpectedError);
+    expect(mockRes.json).not.toHaveBeenCalled();
+    expect(mockRes.status).not.toHaveBeenCalled();
+  });
+
+  // 高级模式: 多个错误类型的批量测试
+  it('should handle various error types consistently', async () => {
+    const errorTypes = [
+      {
+        name: 'Constraint Error',
+        error: Object.assign(new Error('Unique constraint failed'), {
+          name: 'SequelizeUniqueConstraintError'
+        })
+      },
+      {
+        name: 'Validation Error',
+        error: Object.assign(new Error('Validation failed'), {
+          name: 'SequelizeValidationError'
+        })
+      },
+      {
+        name: 'Connection Error',
+        error: Object.assign(new Error('Connection refused'), {
+          code: 'ECONNREFUSED'
+        })
+      }
+    ];
+
+    for (const { name, error } of errorTypes) {
+      // 重置所有mock
+      jest.clearAllMocks();
+      
+      db.Actor.create.mockRejectedValue(error);
+      mockReq.body = { firstName: 'Test', lastName: 'User' };
+      
+      await actorsController.createActor(mockReq, mockRes, mockNext);
+      
+      // 验证每种错误都被正确处理
+      expect(mockNext).toHaveBeenCalledWith(error);
+      expect(mockRes.json).not.toHaveBeenCalled();
+      
+      console.log(`✅ ${name} handled correctly`);
+    }
+  });
+});
+```
+
+🎯 测试的核心目的
+这个测试验证你的 createActor 控制器能够：
+
+正确捕获数据库错误（try-catch）
+正确传递错误给错误处理中间件（next(error)）
+避免发送成功响应当错误发生时
